@@ -7,6 +7,7 @@ class ModelName(str, Enum):
     lenet = "lenet"
 
 app = FastAPI()
+fake_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
 
 @app.get("/")
 async def root():
@@ -20,9 +21,16 @@ async def read_user_me():
 async def read_user(user_id: str):
     return {"user_id": user_id}
 
+@app.get("/items/")
+async def read_db_item(skip: int = 0, limit: int = 10):
+    return fake_db[skip: skip + limit]
+
 @app.get("/items/{item_id}")
-async def read_item(item_id: int):
-    return {"item_id": item_id}
+async def read_item(item_id: str, q: str | None = None):
+    if q:
+        return {"item_id": item_id, "q": q}
+    else:
+        return {"item_id": item_id}
 
 @app.get("/models/{model_name}")
 async def get_model(model_name: ModelName):
@@ -36,3 +44,12 @@ async def get_model(model_name: ModelName):
 @app.get("/files/{file_path:path}")
 async def read_file(file_path: str):
     return {"file_path": file_path}
+
+@app.get("/users/{user_id}/items/{item_id}")
+async def read_user_item(user_id: int, item_id: str, q: str | None = None, short: bool = False):
+    item = {'item_id': item_id, "owner_id": user_id}
+    if q:
+        item.update({"q": q})
+    if not short:
+        item.update({"description": "this is a short item with a long description"})
+    return item
