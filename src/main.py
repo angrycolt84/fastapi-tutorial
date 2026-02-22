@@ -1,12 +1,15 @@
-from fastapi import FastAPI, Path, Query, Body, Cookie, Header
+from fastapi import FastAPI, Path, Query, Body, Cookie, Header, Response
+from fastapi.responses import JSONResponse, RedirectResponse
 from ModelName import ModelName
 from Item import Item
-from typing import Annotated
+from typing import Annotated, Any
 from User import User
 import datetime as dt
 from cookies import Cookies
 from Image import Image
+from baseuser import UserIn, BaseUser
 from offer import Offer
+from commonheaders import CommonHeaders
 from uuid import UUID
 import random
 from pydantic import AfterValidator
@@ -31,6 +34,17 @@ def check_valid_id(id: str):
 async def root():
     return {"message": "Hello World"}
 
+
+@app.get("/portal/")
+async def get_portal(teleport: bool = False) -> Response:
+    if teleport:
+        return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    else:
+        return JSONResponse(content={"message": "Here's your interdimensional response."})
+
+@app.post("/user/", response_model=BaseUser)
+async def create_user(user: UserIn) -> Any:
+    return user
 
 @app.get("/users/me")
 async def read_user_me():
@@ -84,9 +98,20 @@ async def read_user(user_id: str):
 # async def read_items(x_token: Annotated[list[str] | None, Header()] = None):
 #     return {"X-token Values": x_token}
 
-@app.get("/items/")
-async def read_items(cookies: Annotated[Cookies, Cookie()]):
-    return cookies
+# @app.get("/items/")
+# async def read_items(cookies: Annotated[Cookies, Cookie()]):
+#     return cookies
+
+# @app.get("/items/")
+# async def read_items(headers: Annotated[CommonHeaders, Header()]):
+#     return headers
+
+@app.get("/items/", response_model=list[Item])
+async def read_items() -> Any:
+    return [
+        {"name": "Portal Gun", "price": 42.0},
+        {"name": "Plumbus", "price": 32.0},
+    ]
 
 # @app.get("/items/{item_id}")
 # async def read_item(item_id: str, q: str | None = None):
@@ -134,13 +159,18 @@ async def read_user_item(
     return item
 
 
+# @app.post("/items/")
+# async def create_item(item: Item):
+#     item_dict = item.model_dump()
+#     if item.tax is not None:
+#         price_with_tax = item.price + item.tax
+#         item_dict.update({"price_with_tax": price_with_tax})
+#     return item_dict
+
+
 @app.post("/items/")
-async def create_item(item: Item):
-    item_dict = item.model_dump()
-    if item.tax is not None:
-        price_with_tax = item.price + item.tax
-        item_dict.update({"price_with_tax": price_with_tax})
-    return item_dict
+async def create_item(item: Item) -> Item:
+    return item
 
 
 # @app.put("/items/{item_id}")
