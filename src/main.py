@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Path, Form, Query, Body, Cookie, Header, Response, status, File, UploadFile
+from fastapi import FastAPI, Path, Form, Query, Body, Cookie, Header, Response, status, File, UploadFile, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
 from ModelName import ModelName
 from formdata import FormData
 from Item import Item, PlaneItem, CarItem
 from typing import Annotated, Any
 from User import User
+from queryparam import CommonQueryParam
+from fastapi.encoders import jsonable_encoder
 import datetime as dt
 from cookies import Cookies
 from Image import Image
@@ -17,20 +19,30 @@ from pydantic import AfterValidator
 from FilterParams import FilterParams
 
 app = FastAPI()
-fake_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
+fake_db = {}
+# fake_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
 data = {
     "isbn-9781529046137": "The Hitchhiker's Guide to the Galaxy",
     "imdb-tt0371724": "The Hitchhiker's Guide to the Galaxy",
     "isbn-9781439512982": "Isaac Asimov: The Complete Stories, Vol. 2",
 }
 
+async def common_parameters(q: str | None = None, skip: int = 0, limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+
+# items = {
+#     "item1": {"description": "All my friends drive a low rider", "type": "car"},
+#     "item2": {
+#         "description": "Music is my aeroplane, it's my aeroplane",
+#         "type": "plane",
+#         "size": 5,
+#     },
+# }
+
 items = {
-    "item1": {"description": "All my friends drive a low rider", "type": "car"},
-    "item2": {
-        "description": "Music is my aeroplane, it's my aeroplane",
-        "type": "plane",
-        "size": 5,
-    },
+    "foo": {"name": "Foo", "price": 50.2},
+    "bar": {"name": "Bar", "description": "The bartenders", "price": 62, "tax": 20.2},
+    "baz": {"name": "Baz", "description": None, "price": 50.2, "tax": 10.5, "tags": []},
 }
 
 
@@ -73,6 +85,9 @@ async def read_user_me():
     return {"user_id": "the current user"}
 
 
+
+
+
 @app.get("users/{user_id}")
 async def read_user(user_id: str):
     return {"user_id": user_id}
@@ -81,6 +96,24 @@ async def read_user(user_id: str):
 async def create_user(user: UserIn):
     user_saved = fake_save_user(user=user)
     return user_saved
+
+@app.patch("/items/{item_id}")
+async def patch_item(item_id: str, item: Item):
+    stored_item_data = items[item_id]
+    stored_item_model = Item(**stored_item_data)
+    update_data = item.model_dump(exclude_unset=True)
+    updated_item = stored_item_model.model_copy(update=update_data)
+    items[item_id] = jsonable_encoder(updated_item)
+    return updated_item
+
+@app.get("/items/")
+async def read_items(commons: Annotated[dict, Depends(common_parameters)]):
+    return commons
+
+@app.get("/users/")
+async def read_users(commons: Annotated[dict, Depends(common_parameters)]):
+    return commons
+
 # @app.get("/items/")
 # async def read_db_item(skip: int = 0, limit: int = 10):
 #     return fake_db[skip: skip + limit]
@@ -131,12 +164,12 @@ async def create_user(user: UserIn):
 # async def read_items(headers: Annotated[CommonHeaders, Header()]):
 #     return headers
 
-@app.get("/items/", response_model=list[Item])
-async def read_items() -> Any:
-    return [
-        {"name": "Portal Gun", "price": 42.0},
-        {"name": "Plumbus", "price": 32.0},
-    ]
+# @app.get("/items/", response_model=list[Item])
+# async def read_items() -> Any:
+#     return [
+#         {"name": "Portal Gun", "price": 42.0},
+#         {"name": "Plumbus", "price": 32.0},
+#     ]
 
 # @app.get("/items/{item_id}")
 # async def read_item(item_id: str, q: str | None = None):
@@ -201,6 +234,12 @@ async def read_user_item(
 async def create_item(item: Item) -> Item:
     return item
 
+
+@app.put("/items/{id}")
+async def update_item(id: str, item: Item):
+    json_compatible_item_data = jsonable_encoder(item)
+    fake_db[id] = json_compatible_item_data
+    return json_compatible_item_data
 
 # @app.put("/items/{item_id}")
 # async def update_item(item_id: int, item: Item):
