@@ -1,13 +1,14 @@
-from fastapi import FastAPI, Path, Query, Body, Cookie, Header, Response
+from fastapi import FastAPI, Path, Form, Query, Body, Cookie, Header, Response, status, File, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from ModelName import ModelName
-from Item import Item
+from formdata import FormData
+from Item import Item, PlaneItem, CarItem
 from typing import Annotated, Any
 from User import User
 import datetime as dt
 from cookies import Cookies
 from Image import Image
-from baseuser import UserIn, BaseUser
+from baseuser import UserIn, BaseUser, UserOut, fake_password_hasher, fake_save_user
 from offer import Offer
 from commonheaders import CommonHeaders
 from uuid import UUID
@@ -21,6 +22,15 @@ data = {
     "isbn-9781529046137": "The Hitchhiker's Guide to the Galaxy",
     "imdb-tt0371724": "The Hitchhiker's Guide to the Galaxy",
     "isbn-9781439512982": "Isaac Asimov: The Complete Stories, Vol. 2",
+}
+
+items = {
+    "item1": {"description": "All my friends drive a low rider", "type": "car"},
+    "item2": {
+        "description": "Music is my aeroplane, it's my aeroplane",
+        "type": "plane",
+        "size": 5,
+    },
 }
 
 
@@ -42,9 +52,21 @@ async def get_portal(teleport: bool = False) -> Response:
     else:
         return JSONResponse(content={"message": "Here's your interdimensional response."})
 
-@app.post("/user/", response_model=BaseUser)
-async def create_user(user: UserIn) -> Any:
-    return user
+@app.post("/files/")
+async def create_file(file: Annotated[bytes, File()]):
+    return {"file_size": len(file)}
+
+@app.post("/uploadfiles/")
+async def create_upload_file(file: UploadFile):
+    return {"filename": file.filename}
+
+@app.post("/login/")
+async def login(data: Annotated[FormData, Form()]):
+    return {"username": data.username}
+
+# @app.post("/user/", response_model=BaseUser)
+# async def create_user(user: UserIn) -> Any:
+#     return user
 
 @app.get("/users/me")
 async def read_user_me():
@@ -55,7 +77,10 @@ async def read_user_me():
 async def read_user(user_id: str):
     return {"user_id": user_id}
 
-
+@app.post("/user/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_user(user: UserIn):
+    user_saved = fake_save_user(user=user)
+    return user_saved
 # @app.get("/items/")
 # async def read_db_item(skip: int = 0, limit: int = 10):
 #     return fake_db[skip: skip + limit]
@@ -121,15 +146,19 @@ async def read_items() -> Any:
 #         return {"item_id": item_id}
 
 
-@app.get("/items/{item_id}")
-async def read_item(
-    item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)],
-    q: Annotated[str | None, Query(alias="item-query")] = None,
-):
-    results = {"item_id": item_id}
-    if q:
-        results.update({"q": q})  # type: ignore
-    return results
+# @app.get("/items/{item_id}")
+# async def read_item(
+#     item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)],
+#     q: Annotated[str | None, Query(alias="item-query")] = None,
+# ):
+#     results = {"item_id": item_id}
+#     if q:
+#         results.update({"q": q})  # type: ignore
+#     return results
+
+@app.get("/items/{item_id}", response_model = PlaneItem | CarItem)
+async def read_item(item_id: str):
+    return items[item_id]
 
 
 @app.get("/models/{model_name}")
